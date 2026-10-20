@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <optional>
 #include <random>
 #include <string>
+#include <string_view>
 #include <utility>
 
 // initialize head (left sentinel) + 0 height, initialize the engine (seeded via
@@ -73,7 +75,7 @@ SkipList &SkipList::operator=(SkipList &&other) noexcept {
 }
 
 // returns nullptr if not found
-const Entry *SkipList::Search(const std::string &key) const {
+const Entry *SkipList::Search(std::string_view key) const {
 	std::array<Node *, kMaxHeight> predecessors = FindPredecessors(key);
 	Node *candidate = predecessors[0]->forward[0];
 	if (candidate == nullptr || candidate->key != key) {
@@ -144,7 +146,7 @@ int SkipList::RandomHeight() const {
 // NOTE: need to include SkipList::kMaxHeight since the compiler doesn't know
 // its inside the class yet
 std::array<SkipList::Node *, SkipList::kMaxHeight>
-SkipList::FindPredecessors(const std::string &key) const {
+SkipList::FindPredecessors(std::string_view key) const {
 	std::array<Node *, kMaxHeight> result;
 	// the levels we don't walk keep head_ as their predecessor
 	result.fill(head_.get());

@@ -1,17 +1,36 @@
 #pragma once
 
 #include "entry.h"
+
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <random>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 class SkipList {
 private:
-	struct Node; // forward declaration for Iterator
+	// declare here so that Iterator can use it
+	// each node is a tower
+	struct Node {
+		// makes a tower with `height` levels (0 .. height - 1)
+		Node(std::string k, Entry v, int height)
+		    : key(std::move(k)), value(std::move(v)), forward(height, nullptr) {
+		}
+
+		std::string key;
+		// the value entry for a given node
+		Entry value;
+		// level-0 connection, this node OWNS the next node
+		std::unique_ptr<Node> next;
+		// forward[i] points to next tower that's at least (i + 1) tall (i.e, at
+		// that level)
+		std::vector<Node *> forward;
+	};
 
 public:
 	SkipList();
@@ -50,36 +69,23 @@ public:
 	Iterator begin() const { return Iterator(head_->next.get()); }
 	Iterator end() const { return Iterator(nullptr); }
 
-	const Entry *Search(const std::string &key) const;
+	const Entry *Search(std::string_view key) const;
 	std::optional<size_t> Add(std::string key, Entry value);
 	bool Erase(const std::string &key);
 	bool Empty() const { return head_->next == nullptr; }
 
+	// the approximate overhead each skiplist node uses (beyond
+	// the key & value bytes)
+	static constexpr size_t kApproxNodeOverhead =
+	    sizeof(Node) + 2 * sizeof(Node *);
+
 private:
-	// each node is a tower
-	struct Node {
-		// makes a tower with `height` levels (0 .. height - 1)
-		Node(std::string k, Entry v, int height)
-		    : key(std::move(k)), value(std::move(v)), forward(height, nullptr) {
-		}
-
-		std::string key;
-		// the value entry for a given node
-		Entry value;
-		// level-0 connection, this node OWNS the next node
-		std::unique_ptr<Node> next;
-		// forward[i] points to next tower that's at least (i + 1) tall (i.e, at
-		// that level)
-		std::vector<Node *> forward;
-	};
-
 	static constexpr int kMaxHeight = 16;
 
 	int RandomHeight() const;
 
 	// return the rightmost nodes of each level that have value < key
-	std::array<Node *, kMaxHeight>
-	FindPredecessors(const std::string &key) const;
+	std::array<Node *, kMaxHeight> FindPredecessors(std::string_view key) const;
 
 	std::unique_ptr<Node> head_;
 	int height_; // # of levels currently in use
