@@ -35,7 +35,7 @@ private:
 		std::vector<Node *> forward;
 	};
 
-	static constexpr int kMaxHeight = 32;
+	static constexpr int kMaxHeight = 16;
 
 	int RandomHeight() const;
 
