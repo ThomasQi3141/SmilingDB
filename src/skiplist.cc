@@ -2,13 +2,15 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <random>
 #include <string>
+#include <utility>
 
 // initialize head (left sentinel) + 0 height, initialize the engine (seeded via
 // random_device{}())
 SkipList::SkipList()
-    : head_(std::make_unique<Node>("", kMaxHeight)), height_(0),
+    : head_(std::make_unique<Node>("", Entry{}, kMaxHeight)), height_(0),
       rng_(std::random_device{}()) {}
 
 SkipList::~SkipList() {
@@ -19,8 +21,8 @@ SkipList::~SkipList() {
 }
 
 SkipList::SkipList(const SkipList &other)
-    : head_(std::make_unique<Node>("", kMaxHeight)), height_(other.height_),
-      rng_(std::random_device{}()) {
+    : head_(std::make_unique<Node>("", Entry{}, kMaxHeight)),
+      height_(other.height_), rng_(std::random_device{}()) {
 	// last[i] = previous node we created at level i
 	std::array<Node *, kMaxHeight> last;
 	last.fill(head_.get());
@@ -28,7 +30,8 @@ SkipList::SkipList(const SkipList &other)
 	while (source != nullptr) {
 		// build a tower with empty forward pointers first
 		int source_height = static_cast<int>(source->forward.size());
-		last[0]->next = std::make_unique<Node>(source->key, source_height);
+		last[0]->next =
+		    std::make_unique<Node>(source->key, source->value, source_height);
 		// make a local copy of the new node first, last[0] will be overwritten
 		// by the loop
 		Node *new_node = last[0]->next.get();
@@ -52,11 +55,11 @@ SkipList &SkipList::operator=(const SkipList &other) {
 	return *this;
 }
 
-SkipList::SkipList(SkipList &&other) noexcept
+SkipList::SkipList(SkipList &&other)
     : head_(std::move(other.head_)), height_(std::exchange(other.height_, 0)),
       rng_(std::move(other.rng_)) {
 	// assign the other skiplist an empty head so it doesn't crash
-	other.head_ = std::make_unique<Node>("", kMaxHeight);
+	other.head_ = std::make_unique<Node>("", Entry{}, kMaxHeight);
 }
 
 SkipList &SkipList::operator=(SkipList &&other) noexcept {
@@ -69,23 +72,31 @@ SkipList &SkipList::operator=(SkipList &&other) noexcept {
 	return *this;
 }
 
-bool SkipList::Search(const std::string &key) const {
-	std::array<SkipList::Node *, SkipList::kMaxHeight> predecessors =
-	    FindPredecessors(key);
+// returns nullptr if not found
+const Entry *SkipList::Search(const std::string &key) const {
+	std::array<Node *, kMaxHeight> predecessors = FindPredecessors(key);
 	Node *candidate = predecessors[0]->forward[0];
-	return candidate != nullptr && candidate->key == key;
+	if (candidate == nullptr || candidate->key != key) {
+		return nullptr;
+	}
+	return &candidate->value;
 }
 
-void SkipList::Add(const std::string &key) {
-	// check if the key already exists, no-op if so
+// returns the old value's size if the key existed, otherwise nullopt if its new
+std::optional<size_t> SkipList::Add(std::string key, Entry value) {
+	// check if the key already exists, update the value if so
 	std::array<Node *, kMaxHeight> predecessors = FindPredecessors(key);
 	Node *candidate = predecessors[0]->forward[0];
 	if (candidate != nullptr && candidate->key == key) {
-		return;
+		size_t old_size = candidate->value.value.size();
+		candidate->value = std::move(value);
+		return old_size;
 	}
+	// otherwise, insert the new value as a tower
 	int tower_height = RandomHeight();
 	height_ = std::max(height_, tower_height);
-	std::unique_ptr<Node> new_tower = std::make_unique<Node>(key, tower_height);
+	std::unique_ptr<Node> new_tower =
+	    std::make_unique<Node>(std::move(key), std::move(value), tower_height);
 	for (int i = 0; i < tower_height; ++i) {
 		// relink all the predecessors to include the new tower
 		new_tower->forward[i] = predecessors[i]->forward[i];
@@ -93,6 +104,7 @@ void SkipList::Add(const std::string &key) {
 	}
 	new_tower->next = std::move(predecessors[0]->next);
 	predecessors[0]->next = std::move(new_tower);
+	return std::nullopt;
 }
 
 bool SkipList::Erase(const std::string &key) {

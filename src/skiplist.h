@@ -1,33 +1,71 @@
 #pragma once
 
+#include "entry.h"
 #include <array>
 #include <memory>
+#include <optional>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 class SkipList {
+private:
+	struct Node; // forward declaration for Iterator
+
 public:
 	SkipList();
 	~SkipList();
 
 	SkipList(const SkipList &other);
 	SkipList &operator=(const SkipList &other);
-	SkipList(SkipList &&other) noexcept;
+	SkipList(SkipList &&other);
 	SkipList &operator=(SkipList &&other) noexcept;
 
-	bool Search(const std::string &key) const;
-	void Add(const std::string &key);
+	class Iterator {
+	public:
+		explicit Iterator(const Node *node) : node_(node) {}
+
+		const std::string &key() const { return node_->key; }
+		const Entry &value() const { return node_->value; }
+		std::pair<const std::string &, const Entry &> operator*() const {
+			return {node_->key, node_->value};
+		}
+
+		Iterator &operator++() {
+			node_ = node_->next.get();
+			return *this;
+		}
+		bool operator==(const Iterator &other) const {
+			return node_ == other.node_;
+		}
+		bool operator!=(const Iterator &other) const {
+			return !(*this == other);
+		}
+
+	private:
+		const Node *node_;
+	};
+
+	Iterator begin() const { return Iterator(head_->next.get()); }
+	Iterator end() const { return Iterator(nullptr); }
+
+	const Entry *Search(const std::string &key) const;
+	std::optional<size_t> Add(std::string key, Entry value);
 	bool Erase(const std::string &key);
+	bool Empty() const { return head_->next == nullptr; }
 
 private:
 	// each node is a tower
 	struct Node {
 		// makes a tower with `height` levels (0 .. height - 1)
-		Node(const std::string &k, int height)
-		    : key(k), forward(height, nullptr) {}
+		Node(std::string k, Entry v, int height)
+		    : key(std::move(k)), value(std::move(v)), forward(height, nullptr) {
+		}
 
 		std::string key;
+		// the value entry for a given node
+		Entry value;
 		// level-0 connection, this node OWNS the next node
 		std::unique_ptr<Node> next;
 		// forward[i] points to next tower that's at least (i + 1) tall (i.e, at
