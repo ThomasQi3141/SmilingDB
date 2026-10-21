@@ -8,6 +8,8 @@
 #include <string_view>
 #include <utility>
 
+namespace SmilingDB {
+
 void MemTable::Put(std::string key, std::string value) {
 	AddEntry(std::move(key), Entry{std::move(value)});
 }
@@ -43,3 +45,5 @@ void MemTable::AddEntry(std::string key, Entry entry) {
 		memory_usage_ -= *old_size;
 	}
 }
+
+} // namespace SmilingDB

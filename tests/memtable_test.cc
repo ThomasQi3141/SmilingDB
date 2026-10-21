@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+namespace SmilingDB {
 namespace {
 
 constexpr size_t kOverhead = SkipList::kApproxNodeOverhead;
@@ -138,3 +139,4 @@ TEST(MemTableTest, IterationIsSortedAndIncludesTombstones) {
 }
 
 } // namespace
+} // namespace SmilingDB

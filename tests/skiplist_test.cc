@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+namespace SmilingDB {
 namespace {
 
 // shorthand for a live (non-tombstone) entry
@@ -317,3 +318,4 @@ TEST(SkipListTest, MatchesStdMapUnderRandomOps) {
 }
 
 } // namespace
+} // namespace SmilingDB

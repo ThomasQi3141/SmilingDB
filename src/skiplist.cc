@@ -9,6 +9,8 @@
 #include <string_view>
 #include <utility>
 
+namespace SmilingDB {
+
 // initialize head (left sentinel) + 0 height, initialize the engine (seeded via
 // random_device{}())
 SkipList::SkipList()
@@ -162,3 +164,5 @@ SkipList::FindPredecessors(std::string_view key) const {
 	}
 	return result;
 }
+
+} // namespace SmilingDB

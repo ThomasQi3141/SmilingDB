@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 
+namespace SmilingDB {
+
 enum class LookupResult { Found, Deleted, NotFound };
 
 class MemTable {
@@ -42,3 +44,5 @@ private:
 	SkipList list_;
 	size_t memory_usage_ = 0;
 };
+
+} // namespace SmilingDB

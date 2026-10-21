@@ -7,6 +7,8 @@
 #include <string_view>
 #include <utility>
 
+namespace SmilingDB {
+
 std::optional<std::string> DB::Get(std::string_view key) const {
 	std::string value;
 	LookupResult result = mem_->Get(key, value);
@@ -21,3 +23,5 @@ std::optional<std::string> DB::Get(std::string_view key) const {
 	std::unreachable(); // this point cant be reached, to disable compiler
 	                    // warnings
 }
+
+} // namespace SmilingDB

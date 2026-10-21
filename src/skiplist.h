@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+namespace SmilingDB {
+
 class SkipList {
 private:
 	// declare here so that Iterator can use it
@@ -95,3 +97,5 @@ private:
 	// function can advance the engine w/o breaking the const promise
 	mutable std::mt19937 rng_;
 };
+
+} // namespace SmilingDB

@@ -8,6 +8,8 @@
 #include <string_view>
 #include <utility>
 
+namespace SmilingDB {
+
 class DB {
 public:
 	DB() = default;
@@ -28,3 +30,5 @@ public:
 private:
 	std::unique_ptr<MemTable> mem_ = std::make_unique<MemTable>();
 };
+
+} // namespace SmilingDB

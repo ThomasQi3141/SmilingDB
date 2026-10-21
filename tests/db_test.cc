@@ -7,6 +7,7 @@
 #include <random>
 #include <string>
 
+namespace SmilingDB {
 namespace {
 
 TEST(DBTest, PutThenGet) {
@@ -140,3 +141,4 @@ TEST(DBTest, MatchesStdMapUnderRandomOps) {
 }
 
 } // namespace
+} // namespace SmilingDB

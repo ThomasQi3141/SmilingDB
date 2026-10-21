@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+namespace SmilingDB {
 namespace {
 
 // thin adapters so every benchmark body is shared across containers. all of
@@ -194,3 +195,4 @@ SMILINGDB_BENCH_ALL(BM_Erase);
 SMILINGDB_BENCH_ALL(BM_Scan);
 
 } // namespace
+} // namespace SmilingDB
