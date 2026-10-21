@@ -109,7 +109,7 @@ std::optional<size_t> SkipList::Add(std::string key, Entry value) {
 	return std::nullopt;
 }
 
-bool SkipList::Erase(const std::string &key) {
+bool SkipList::Erase(std::string_view key) {
 	std::array<Node *, kMaxHeight> predecessors = FindPredecessors(key);
 	Node *candidate = predecessors[0]->next.get();
 	if (candidate == nullptr || candidate->key != key) {

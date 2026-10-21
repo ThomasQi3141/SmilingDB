@@ -71,7 +71,7 @@ public:
 
 	const Entry *Search(std::string_view key) const;
 	std::optional<size_t> Add(std::string key, Entry value);
-	bool Erase(const std::string &key);
+	bool Erase(std::string_view key);
 	bool Empty() const { return head_->next == nullptr; }
 
 	// the approximate overhead each skiplist node uses (beyond
