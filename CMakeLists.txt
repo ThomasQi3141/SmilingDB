@@ -20,7 +20,7 @@ if(SMILINGDB_SANITIZE)
 endif()
 
 add_library(smilingdb src/skiplist.cc src/memtable.cc src/db.cc src/coding.cc
-	src/crc32.cc)
+	src/crc32.cc src/log_record.cc)
 target_include_directories(smilingdb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_options(smilingdb PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -58,6 +58,11 @@ if(SMILINGDB_BUILD_TESTS)
 	target_link_libraries(coding_test PRIVATE smilingdb GTest::gtest_main)
 	target_compile_options(coding_test PRIVATE -Wall -Wextra)
 	gtest_discover_tests(coding_test)
+
+	add_executable(log_record_test tests/log_record_test.cc)
+	target_link_libraries(log_record_test PRIVATE smilingdb GTest::gtest_main)
+	target_compile_options(log_record_test PRIVATE -Wall -Wextra)
+	gtest_discover_tests(log_record_test)
 endif()
 
 if(SMILINGDB_BUILD_BENCH)
