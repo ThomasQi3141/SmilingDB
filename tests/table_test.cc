@@ -18,8 +18,8 @@ namespace {
 
 std::filesystem::path BuildTable(const TempDir &dir,
                                  const std::map<std::string, Entry> &entries,
-                                 size_t block_size) {
-	TableBuilder builder(block_size);
+                                 size_t block_size, int bits_per_key = 10) {
+	TableBuilder builder(block_size, bits_per_key);
 	for (const auto &[key, entry] : entries) {
 		builder.Add(key, entry);
 	}
@@ -152,6 +152,71 @@ TEST(TableTest, CorruptBlockIsGetError) {
 	auto table = Check(TableReader::Open(path));
 	std::string value;
 	EXPECT_FALSE(table->Get("key", value).has_value());
+}
+
+TEST(TableTest, WorksWithoutBloomFilter) {
+	TempDir dir;
+	std::map<std::string, Entry> entries;
+	for (int i = 0; i < 500; ++i) {
+		entries[Key(i)] = Entry{std::to_string(i)};
+	}
+	entries[Key(7)] = Entry{"", true};
+	auto table = Check(TableReader::Open(BuildTable(dir, entries, 64, 0)));
+	std::string value;
+	for (int i = 0; i < 500; ++i) {
+		ASSERT_EQ(Get(*table, Key(i), value),
+		          i == 7 ? LookupResult::Deleted : LookupResult::Found)
+		    << i;
+	}
+	EXPECT_EQ(Get(*table, Key(10) + "x", value), LookupResult::NotFound);
+}
+
+// tombstone keys have to be in the filter, otherwise Deleted turns into
+// NotFound and an older table's value comes back
+TEST(TableTest, TombstonesPassTheFilter) {
+	TempDir dir;
+	std::map<std::string, Entry> entries;
+	for (int i = 0; i < 1000; ++i) {
+		entries[Key(i)] = Entry{"", i % 2 == 0};
+	}
+	auto table = Check(TableReader::Open(BuildTable(dir, entries, 4096)));
+	std::string value;
+	for (int i = 0; i < 1000; i += 2) {
+		ASSERT_EQ(Get(*table, Key(i), value), LookupResult::Deleted) << i;
+	}
+}
+
+// corrupt the only data block: a key the filter rules out never reads it (no
+// error), without a filter the same lookup hits the bad block
+TEST(TableTest, BloomFilterSkipsBlockRead) {
+	std::map<std::string, Entry> entries = {{"apple", {"1"}},
+	                                        {"cherry", {"3"}}};
+	for (int bits : {10, 0}) {
+		TempDir dir;
+		std::filesystem::path path = BuildTable(dir, entries, 4096, bits);
+		std::string data = Check(ReadFile(path));
+		data[15] ^= 0x01;
+		WriteRaw(path, data);
+		auto table = Check(TableReader::Open(path));
+		std::string value;
+		auto result = table->Get("banana", value);
+		if (bits > 0) {
+			ASSERT_TRUE(result.has_value());
+			EXPECT_EQ(*result, LookupResult::NotFound);
+		} else {
+			EXPECT_FALSE(result.has_value());
+		}
+	}
+}
+
+TEST(TableTest, CorruptFilterBoundsIsError) {
+	TempDir dir;
+	std::filesystem::path path = BuildTable(dir, {{"k", {"v"}}}, 4096);
+	std::string data = Check(ReadFile(path));
+	// filter size is the 2nd footer field
+	data[data.size() - kFooterSize + 8 + 7] = '\x7f';
+	WriteRaw(path, data);
+	EXPECT_FALSE(TableReader::Open(path).has_value());
 }
 
 } // namespace

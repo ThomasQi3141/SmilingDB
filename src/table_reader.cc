@@ -1,4 +1,5 @@
 #include "table_reader.h"
+#include "bloom.h"
 #include "coding.h"
 #include "file_util.h"
 #include "log_record.h"
@@ -25,19 +26,19 @@ TableReader::Open(const std::filesystem::path &path) {
 	if (fd < 0) {
 		return std::unexpected(ErrnoMessage("open " + path.string()));
 	}
-	auto index = ReadIndex(fd, path);
-	if (!index) {
+	auto meta = ReadMeta(fd, path);
+	if (!meta) {
 		::close(fd);
-		return std::unexpected(index.error());
+		return std::unexpected(meta.error());
 	}
 	return std::unique_ptr<TableReader>(
-	    new TableReader(fd, path, std::move(*index)));
+	    new TableReader(fd, path, std::move(*meta)));
 }
 
 TableReader::~TableReader() { ::close(fd_); }
 
-std::expected<std::vector<TableReader::IndexEntry>, std::string>
-TableReader::ReadIndex(int fd, const std::filesystem::path &path) {
+std::expected<TableReader::Meta, std::string>
+TableReader::ReadMeta(int fd, const std::filesystem::path &path) {
 	auto corrupt = [&](std::string_view why) {
 		return std::unexpected("corrupt table " + path.string() + ": " +
 		                       std::string(why));
@@ -56,13 +57,24 @@ TableReader::ReadIndex(int fd, const std::filesystem::path &path) {
 	if (!footer) {
 		return std::unexpected(footer.error());
 	}
-	uint64_t index_offset = DecodeFixed64(footer->data());
-	uint64_t index_size = DecodeFixed64(footer->data() + 8);
-	if (DecodeFixed64(footer->data() + 16) != kTableMagic) {
+	uint64_t filter_offset = DecodeFixed64(footer->data());
+	uint64_t filter_size = DecodeFixed64(footer->data() + 8);
+	uint64_t index_offset = DecodeFixed64(footer->data() + 16);
+	uint64_t index_size = DecodeFixed64(footer->data() + 24);
+	if (DecodeFixed64(footer->data() + 32) != kTableMagic) {
 		return corrupt("bad magic number");
 	}
 	if (index_offset > data_end || index_size > data_end - index_offset) {
 		return corrupt("index out of bounds");
+	}
+	if (filter_offset > index_offset ||
+	    filter_size > index_offset - filter_offset) {
+		return corrupt("filter out of bounds");
+	}
+	std::expected<std::string, std::string> filter =
+	    ReadAt(fd, filter_offset, filter_size);
+	if (!filter) {
+		return std::unexpected(filter.error());
 	}
 	std::expected<std::string, std::string> raw =
 	    ReadAt(fd, index_offset, index_size);
@@ -79,7 +91,7 @@ TableReader::ReadIndex(int fd, const std::filesystem::path &path) {
 		}
 		uint64_t offset = DecodeFixed64(record->value.data());
 		uint64_t size = DecodeFixed64(record->value.data() + 8);
-		if (offset > index_offset || size > index_offset - offset) {
+		if (offset > filter_offset || size > filter_offset - offset) {
 			return corrupt("block out of bounds");
 		}
 		if (!index.empty() && record->key <= index.back().last_key) {
@@ -88,11 +100,15 @@ TableReader::ReadIndex(int fd, const std::filesystem::path &path) {
 		index.push_back({std::string(record->key), offset, size});
 		input.remove_prefix(record->size);
 	}
-	return index;
+	return Meta{std::move(index), std::move(*filter)};
 }
 
 std::expected<LookupResult, std::string>
 TableReader::Get(std::string_view key, std::string &value) const {
+	// filter says no -> skip the disk read completely
+	if (!BloomMayContain(filter_, key)) {
+		return LookupResult::NotFound;
+	}
 	// first block with last key >= key is the only one that can have it
 	auto it = std::lower_bound(
 	    index_.begin(), index_.end(), key,

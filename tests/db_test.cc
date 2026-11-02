@@ -351,6 +351,29 @@ TEST(DBTest, SyncOption) {
 	EXPECT_EQ(Get(*db, "k"), "v");
 }
 
+TEST(DBTest, WorksWithoutBloomFilter) {
+	TempDir dir;
+	Options options = TinyOptions();
+	options.bloom_bits_per_key = 0;
+	{
+		auto db = OpenDB(dir, options);
+		for (int i = 0; i < 200; ++i) {
+			Check(db->Put("key" + std::to_string(i), std::to_string(i)));
+		}
+		for (int i = 0; i < 200; i += 3) {
+			Check(db->Remove("key" + std::to_string(i)));
+		}
+	}
+	auto db = OpenDB(dir, options);
+	for (int i = 0; i < 200; ++i) {
+		std::optional<std::string> expected;
+		if (i % 3 != 0) {
+			expected = std::to_string(i);
+		}
+		EXPECT_EQ(Get(*db, "key" + std::to_string(i)), expected) << i;
+	}
+}
+
 // random ops + random reopens vs std::map
 TEST(DBTest, MatchesStdMapUnderRandomOpsAndReopens) {
 	TempDir dir;

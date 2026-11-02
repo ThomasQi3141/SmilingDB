@@ -194,7 +194,7 @@ std::expected<void, std::string> DB::MaybeFlush() {
 
 std::expected<void, std::string> DB::WriteTable(const MemTable &mem) {
 	uint64_t number = next_file_number_++;
-	TableBuilder builder(options_.block_size);
+	TableBuilder builder(options_.block_size, options_.bloom_bits_per_key);
 	// tombstones get written too, otherwise an older table's value comes back
 	for (auto [key, entry] : mem) {
 		builder.Add(key, entry);

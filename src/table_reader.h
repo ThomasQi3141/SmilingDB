@@ -14,7 +14,7 @@ namespace SmilingDB {
 
 class TableReader {
 public:
-	// only reads footer + index, data blocks get read when needed
+	// only reads footer + filter + index, data blocks get read when needed
 	static std::expected<std::unique_ptr<TableReader>, std::string>
 	Open(const std::filesystem::path &path);
 	~TableReader();
@@ -33,16 +33,22 @@ private:
 		uint64_t size;
 	};
 
-	TableReader(int fd, std::filesystem::path path,
-	            std::vector<IndexEntry> index)
-	    : fd_(fd), path_(std::move(path)), index_(std::move(index)) {}
+	struct Meta {
+		std::vector<IndexEntry> index;
+		std::string filter;
+	};
 
-	static std::expected<std::vector<IndexEntry>, std::string>
-	ReadIndex(int fd, const std::filesystem::path &path);
+	TableReader(int fd, std::filesystem::path path, Meta meta)
+	    : fd_(fd), path_(std::move(path)), index_(std::move(meta.index)),
+	      filter_(std::move(meta.filter)) {}
+
+	static std::expected<Meta, std::string>
+	ReadMeta(int fd, const std::filesystem::path &path);
 
 	int fd_;
 	std::filesystem::path path_;
 	std::vector<IndexEntry> index_;
+	std::string filter_;
 };
 
 } // namespace SmilingDB

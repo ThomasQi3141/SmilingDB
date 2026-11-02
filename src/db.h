@@ -20,6 +20,8 @@ struct Options {
 	// flush memtable to an sstable once it gets this big
 	size_t write_buffer_size = 4 * 1024 * 1024;
 	size_t block_size = 4 * 1024;
+	// 0 -> no bloom filter
+	int bloom_bits_per_key = 10;
 	// fsync after every write, off -> survives a process crash but not power
 	// loss (same default as leveldb)
 	bool sync = false;
